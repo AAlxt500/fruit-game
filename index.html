@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>水墨切水果 · 黑白线条</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a1a; touch-action: none; }
+    body {
+      display: flex; align-items: center; justify-content: center;
+      font-family: "KaiTi", "STKaiti", "楷体", "华文楷体", "Songti SC", serif;
+    }
+    .game-container {
+      position: relative; width: 100vw; height: 100vh; max-width: none;
+      background: #fdfaf3;
+      background-image:
+        radial-gradient(circle at 20% 30%, rgba(200,190,170,0.08) 0%, transparent 40%),
+        radial-gradient(circle at 80% 70%, rgba(180,170,150,0.06) 0%, transparent 45%),
+        repeating-linear-gradient(45deg, rgba(0,0,0,0.01) 0px, rgba(0,0,0,0.01) 2px, transparent 2px, transparent 6px);
+      overflow: hidden;
+      border: 6px solid #1a1a1a;
+      box-shadow: inset 0 0 0 1px #fdfaf3, inset 0 0 40px rgba(0,0,0,0.03);
+    }
+
+    /* 画面抖动层（触觉替代） */
+    .shake-layer {
+      position: absolute; inset: 0;
+      pointer-events: none; z-index: 5;
+      transform: translate(0, 0);
+      will-change: transform;
+    }
+    .shake-layer.active {
+      animation: screenShake 0.18s ease-out;
+    }
+    @keyframes screenShake {
+      0%   { transform: translate(0, 0); }
+      20%  { transform: translate(-4px, 2px); }
+      40%  { transform: translate(4px, -2px); }
+      60%  { transform: translate(-3px, -1px); }
+      80%  { transform: translate(2px, 2px); }
+      100% { transform: translate(0, 0); }
+    }
+
+    /* 全屏闪光层（命中反馈） */
+    .flash-layer {
+      position: absolute; inset: 0;
+      pointer-events: none; z-index: 6;
+      background: #ffffff;
+      opacity: 0;
+    }
+    .flash-layer.flash-white {
+      animation: flashWhite 0.14s ease-out;
+    }
+    .flash-layer.flash-red {
+      animation: flashRed 0.3s ease-out;
+    }
+    .flash-layer.flash-gold {
+      animation: flashGold 0.25s ease-out;
+    }
+    .flash-layer.flash-blue {
+      animation: flashBlue 0.25s ease-out;
+    }
+    @keyframes flashWhite {
+      0% { opacity: 0.55; } 100% { opacity: 0; }
+    }
+    @keyframes flashRed {
+      0% { opacity: 0.7; background: #b00020; } 100% { opacity: 0; background: #b00020; }
+    }
+    @keyframes flashGold {
+      0% { opacity: 0.45; background: #ffcc44; } 100% { opacity: 0; background: #ffcc44; }
+    }
+    @keyframes flashBlue {
+      0% { opacity: 0.45; background: #66ccff; } 100% { opacity: 0; background: #66ccff; }
+    }
+
+    canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; position: relative; z-index: 2; }
+
+    /* 顶部状态栏 */
+    .hud-top {
+      position: absolute; top: 20px; left: 0; right: 0;
+      display: flex; justify-content: space-between; align-items: flex-start;
+      padding: 0 24px; pointer-events: none; z-index: 10;
+    }
+    .hud-left { display: flex; flex-direction: column; gap: 6px; }
+    .hearts { display: flex; gap: 4px; align-items: center; font-size: 1.4rem; line-height: 1; }
+    .heart { filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.15)); transition: transform 0.15s ease; }
+    .heart.empty { opacity: 0.18; }
+    .heart.pulse { animation: heartPulse 0.3s ease; }
+    @keyframes heartPulse {
+      0% { transform: scale(1); } 50% { transform: scale(1.35); } 100% { transform: scale(1); }
+    }
+    .timer-box {
+      background: #fdfaf3; border: 3px solid #1a1a1a;
+      box-shadow: 4px 4px 0 #1a1a1a;
+      padding: 4px 14px; font-size: 1.1rem; font-weight: 700;
+      letter-spacing: 2px; color: #1a1a1a;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .timer-box.warning { animation: timerPulse 0.6s infinite; }
+    @keyframes timerPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.55; transform: scale(1.06); }
+    }
+    .score-board {
+      background: #fdfaf3; padding: 8px 22px;
+      border: 3px solid #1a1a1a; box-shadow: 4px 4px 0 #1a1a1a;
+      color: #1a1a1a; font-weight: 700; font-size: 1.7rem;
+      letter-spacing: 2px; line-height: 1;
+      transition: transform 0.12s ease;
+    }
+    .score-board.bump { animation: scoreBump 0.22s ease; }
+    @keyframes scoreBump {
+      0% { transform: scale(1); } 45% { transform: scale(1.18); } 100% { transform: scale(1); }
+    }
+    .score-board .label { font-size: 1rem; margin-right: 6px; }
+
+    /* 状态 / Buff 提示 */
+    .status-tag {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      font-size: 2.2rem; font-weight: 700; color: #1a1a1a;
+      letter-spacing: 6px; pointer-events: none; opacity: 0;
+      text-shadow: 3px 3px 0 rgba(0,0,0,0.08);
+      z-index: 15; white-space: nowrap;
+    }
+    .status-tag.show { opacity: 1; animation: fadeUp 0.7s ease-out; }
+    @keyframes fadeUp {
+      0%   { opacity: 0; transform: translate(-50%, -30%) scale(0.7); }
+      30%  { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+      100% { opacity: 0; transform: translate(-50%, -80%) scale(1); }
+    }
+    .buff-tag {
+      position: absolute; top: 100px; left: 24px;
+      background: #fdfaf3; color: #1a1a1a;
+      padding: 6px 18px; border: 3px solid #1a1a1a;
+      box-shadow: 4px 4px 0 #1a1a1a;
+      font-weight: 700; font-size: 1rem; letter-spacing: 2px;
+      opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 15;
+    }
+    .buff-tag.show { opacity: 1; animation: buffIn 0.4s ease; }
+    @keyframes buffIn {
+      0% { transform: translateX(-20px) scale(0.9); opacity: 0; }
+      60% { transform: translateX(0) scale(1.05); opacity: 1; }
+      100% { transform: translateX(0) scale(1); opacity: 1; }
+    }
+
+    /* 遮罩层 */
+    .overlay {
+      position: absolute; inset: 0;
+      background: rgba(253, 250, 243, 0.94);
+      backdrop-filter: blur(4px);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 100; gap: 28px;
+      opacity: 1; transition: opacity 0.35s ease;
+    }
+    .overlay.hidden { opacity: 0; pointer-events: none; }
+    .overlay-title {
+      font-size: 3rem; font-weight: 700; letter-spacing: 12px;
+      color: #1a1a1a; text-shadow: 5px 5px 0 rgba(0,0,0,0.08);
+    }
+    .overlay-sub { font-size: 1.2rem; letter-spacing: 4px; color: #555; margin-top: -12px; }
+    .overlay-score {
+      font-size: 1.3rem; letter-spacing: 3px; color: #1a1a1a;
+      text-align: center; line-height: 2;
+    }
+    .overlay-score .big { font-size: 2.6rem; font-weight: 700; letter-spacing: 4px; }
+    .overlay-score .record { font-size: 1rem; color: #777; letter-spacing: 2px; }
+    .btn {
+      background: #fdfaf3; border: 3px solid #1a1a1a;
+      padding: 14px 54px; font-size: 1.4rem; font-weight: 700;
+      letter-spacing: 6px; color: #1a1a1a; cursor: pointer;
+      box-shadow: 6px 6px 0 #1a1a1a;
+      transition: transform 0.08s ease, box-shadow 0.08s ease;
+      font-family: inherit; touch-action: manipulation;
+    }
+    .btn:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0 #1a1a1a; }
+    .rules { font-size: 0.95rem; color: #666; line-height: 2; text-align: center; letter-spacing: 1px; }
+    .rules span { color: #1a1a1a; font-weight: 700; }
+  </style>
+</head>
+<body>
+<div class="game-container" id="gameContainer">
+  <!-- 抖动层（包住 canvas 和 HUD，一起抖） -->
+  <div class="shake-layer" id="shakeLayer">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+  <!-- 闪光层 -->
+  <div class="flash-layer" id="flashLayer"></div>
+
+  <div class="hud-top">
+    <div class="hud-left">
+      <div class="hearts" id="hearts">
+        <span class="heart">❤</span>
+        <span class="heart">❤</span>
+        <span class="heart">❤</span>
+      </div>
+      <div class="timer-box" id="timerBox">
+        <span>⏳</span><span id="timerValue">60</span>
+      </div>
+    </div>
+    <div class="score-board" id="scoreBoard"><span class="label">墨</span><span id="scoreValue">0</span></div>
+  </div>
+
+  <div class="status-tag" id="statusTag"></div>
+  <div class="buff-tag" id="buffTag"></div>
+
+  <div class="overlay" id="overlay">
+    <div class="overlay-title" id="overlayTitle">水墨切水果</div>
+    <div class="overlay-sub" id="overlaySub">— 以指为笔，以墨为刀 —</div>
+    <div class="overlay-score" id="overlayScore" style="display:none;"></div>
+    <button class="btn" id="startBtn">开 始</button>
+    <div class="rules" id="rules">
+      <span>❤</span> 生命 3 条 · 漏掉扣半条<br>
+      切到 <span>💣 炸弹</span> 直接结束<br>
+      限时 <span>60 秒</span>，善用道具延长时间
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const container = document.getElementById('gameContainer');
+  const shakeLayer = document.getElementById('shakeLayer');
+  const flashLayer = document.getElementById('flashLayer');
+  const scoreBoard = document.getElementById('scoreBoard');
+
+  const scoreSpan = document.getElementById('scoreValue');
+  const timerSpan = document.getElementById('timerValue');
+  const timerBox = document.getElementById('timerBox');
+  const heartsEl = document.getElementById('hearts');
+  const statusTag = document.getElementById('statusTag');
+  const buffTag = document.getElementById('buffTag');
+
+  const overlay = document.getElementById('overlay');
+  const overlayTitle = document.getElementById('overlayTitle');
+  const overlaySub = document.getElementById('overlaySub');
+  const overlayScore = document.getElementById('overlayScore');
+  const startBtn = document.getElementById('startBtn');
+  const rulesEl = document.getElementById('rules');
+
+  // ---------- 尺寸 ----------
+  let canvasWidth = 0, canvasHeight = 0;
+  const dpr = window.devicePixelRatio || 1;
+
+  function resizeCanvas() {
+    const rect = container.getBoundingClientRect();
+    canvasWidth = rect.width;
+    canvasHeight = rect.height;
+    canvas.width = Math.floor(canvasWidth * dpr);
+    canvas.height = Math.floor(canvasHeight * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    canvas.style.width = canvasWidth + 'px';
+    canvas.style.height = canvasHeight + 'px';
+  }
+
+  // ---------- 震动 + 视觉抖动 (双端反馈) ----------
+  const VIB = {
+    slice: [18],
+    sliceBig: [30],
+    bomb: [80, 40, 120],
+    combo: [15, 30, 15],
+    miss: [40],
+    buff: [25, 20, 25],
+    start: [30, 50, 30],
+    over: [100, 60, 100, 60, 200],
+  };
+
+  function vibrate(pattern) {
+    if (pattern && navigator.vibrate) {
+      try { navigator.vibrate(pattern); } catch (e) {}
+    }
+  }
+
+  // 视觉抖动（iPhone 替代）
+  let shakeTimer = null;
+  function screenShake(intensity) {
+    // intensity: 'light' | 'medium' | 'heavy'
+    const cls = shakeLayer.classList;
+    cls.remove('active');
+    void shakeLayer.offsetWidth;
+    // 根据强度动态调整幅度：通过 CSS 变量控制
+    let amp = 4;
+    if (intensity === 'medium') amp = 7;
+    if (intensity === 'heavy') amp = 12;
+    shakeLayer.style.setProperty('--amp', amp + 'px');
+    // 用内联 animation 控制
+    shakeLayer.style.animation = 'none';
+    void shakeLayer.offsetWidth;
+    shakeLayer.style.animation = `screenShake 0.18s ease-out`;
+    // 动态注入关键帧（用 CSS 变量的方式不太好直接改 keyframes，改用变换函数）
+    // 简单起见，用一组预设动画
+    if (intensity === 'light') {
+      shakeLayer.style.animation = 'shakeLight 0.15s ease-out';
+    } else if (intensity === 'medium') {
+      shakeLayer.style.animation = 'shakeMedium 0.2s ease-out';
+    } else {
+      shakeLayer.style.animation = 'shakeHeavy 0.28s ease-out';
+    }
+    clearTimeout(shakeTimer);
+    shakeTimer = setTimeout(() => {
+      shakeLayer.style.animation = '';
+    }, 320);
+  }
+
+  // 闪光反馈
+  function screenFlash(type) {
+    flashLayer.className = 'flash-layer';
+    void flashLayer.offsetWidth;
+    if (type === 'white') flashLayer.classList.add('flash-white');
+    else if (type === 'red') flashLayer.classList.add('flash-red');
+    else if (type === 'gold') flashLayer.classList.add('flash-gold');
+    else if (type === 'blue') flashLayer.classList.add('flash-blue');
+  }
+
+  // 分数跳动
+  function scoreBump() {
+    scoreBoard.classList.remove('bump');
+    void scoreBoard.offsetWidth;
+    scoreBoard.classList.add('bump');
+  }
+
+  // 红心跳动
+  function heartsPulse() {
+    heartsEl.querySelectorAll('.heart').forEach(el => {
+      el.classList.remove('pulse');
+      void el.offsetWidth;
+      el.classList.add('pulse');
+    });
+  }
+
+  // ---------- 游戏状态 ----------
+  let score = 0;
+  let bestScore = parseInt(localStorage.getItem('ink_fruit_best') || '0', 10);
+  let lives = 3;
+  let timeLeft = 60;
+  let gameActive = false;
+  let gameOver = false;
+
+  let fruits = [];
+  let particles = [];
+  let bladePoints = [];
+
+  let fruitTimer = 0;
+  const FRUIT_SPAWN_INTERVAL = 0.62;
+
+  let freezeTimer = 0;
+  let doubleTimer = 0;
+
+  let isSlicing = false;
+  let lastSlicePos = null;
+  const SLICE_RADIUS = 44;
+
+  const GRAVITY = 1350;
+
+  const FRUIT_TYPES = [
+    { name:'watermelon', inkColor:'#1a1a1a', radius:36, score:1, strokeWidth:3.5, detail:'stripes' },
+    { name:'orange',     inkColor:'#2d2d2d', radius:32, score:1, strokeWidth:3,   detail:'dots' },
+    { name:'apple',      inkColor:'#111111', radius:30, score:1, strokeWidth:4,   detail:'stem' },
+    { name:'lemon',      inkColor:'#3a3a3a', radius:28, score:1, strokeWidth:2.8, detail:'pointy' },
+    { name:'lime',       inkColor:'#555555', radius:26, score:1, strokeWidth:2.5, detail:'simple' },
+    { name:'peach',      inkColor:'#222222', radius:34, score:1, strokeWidth:3.2, detail:'crease' },
+    { name:'dragon',     inkColor:'#0a0a0a', radius:34, score:2, strokeWidth:4,   detail:'scales' },
+  ];
+
+  const SPECIAL_TYPES = {
+    bomb:    { name:'bomb',    radius:30, score:0, inkColor:'#000' },
+    freeze:  { name:'freeze',  radius:28, score:0, inkColor:'#1a1a1a' },
+    double:  { name:'double',  radius:28, score:0, inkColor:'#1a1a1a' },
+    clear:   { name:'clear',   radius:28, score:0, inkColor:'#1a1a1a' },
+    time:    { name:'time',    radius:26, score:0, inkColor:'#1a1a1a' },
+  };
+
+  const rand = (a, b) => Math.random() * (b - a) + a;
+
+  function spawnFruit() {
+    if (!gameActive || gameOver) return;
+
+    const roll = Math.random();
+    let fruit;
+
+    if (roll < 0.08) fruit = makeSpecial('bomb');
+    else if (roll < 0.13) fruit = makeSpecial('time');
+    else if (roll < 0.17) fruit = makeSpecial('freeze');
+    else if (roll < 0.20) fruit = makeSpecial('double');
+    else if (roll < 0.23) fruit = makeSpecial('clear');
+    else {
+      const t = FRUIT_TYPES[Math.floor(Math.random() * FRUIT_TYPES.length)];
+      fruit = {
+        type: 'fruit',
+        name: t.name,
+        inkColor: t.inkColor,
+        radius: t.radius,
+        strokeWidth: t.strokeWidth,
+        detail: t.detail,
+        score: t.score,
+      };
+    }
+
+    fruit.x = rand(canvasWidth * 0.12, canvasWidth * 0.88);
+    fruit.y = canvasHeight + rand(30, 70);
+    fruit.vx = rand(-60, 60);
+    fruit.vy = rand(-1080, -820);
+    fruit.rotation = rand(0, Math.PI * 2);
+    fruit.rotSpeed = rand(-2.5, 2.5);
+    fruit.scale = 1;
+    fruit.offsetSeed = rand(0, 100);
+    fruit.sliced = false;
+
+    fruits.push(fruit);
+  }
+
+  function makeSpecial(name) {
+    const s = SPECIAL_TYPES[name];
+    return {
+      type: 'special',
+      name: s.name,
+      inkColor: s.inkColor,
+      radius: s.radius,
+      strokeWidth: 3.2,
+      score: 0,
+      detail: name,
+    };
+  }
+
+  function createInkSplatter(x, y, count, spread) {
+    for (let i = 0; i < count; i++) {
+      const angle = rand(0, Math.PI * 2);
+      const speed = rand(60, spread);
+      particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 0.4 + Math.random() * 0.5,
+        maxLife: 0.9,
+        size: rand(3, 9),
+      });
+    }
+  }
+
+  function addBladePoint(x, y) {
+    bladePoints.push({ x, y, life: 0.35 });
+    if (bladePoints.length > 18) bladePoints.shift();
+  }
+
+  function resetGame() {
+    score = 0;
+    lives = 3;
+    timeLeft = 60;
+    fruits = [];
+    particles = [];
+    bladePoints = [];
+    fruitTimer = 0;
+    freezeTimer = 0;
+    doubleTimer = 0;
+    gameActive = false;
+    gameOver = false;
+    isSlicing = false;
+    lastSlicePos = null;
+    updateHUD();
+  }
+
+  function startGame() {
+    resetGame();
+    gameActive = true;
+    overlay.classList.add('hidden');
+    vibrate(VIB.start);
+    screenFlash('white');
+    screenShake('light');
+    showStatus('开 始');
+  }
+
+  function endGame(reason) {
+    if (gameOver) return;
+    gameOver = true;
+    gameActive = false;
+    vibrate(VIB.over);
+    screenShake('heavy');
+    screenFlash('red');
+
+    let isNewRecord = false;
+    if (score > bestScore) {
+      bestScore = score;
+      localStorage.setItem('ink_fruit_best', String(bestScore));
+      isNewRecord = true;
+    }
+
+    overlayTitle.textContent = reason === 'bomb' ? '墨 尽 人 亡' : '时 间 到';
+    overlaySub.textContent = reason === 'bomb' ? '— 触 及 炸 弹 —' : '— 墨 已 干 涸 —';
+    overlayScore.style.display = 'block';
+    overlayScore.innerHTML =
+      `本局得分 <span class="big">${score}</span><br>` +
+      `<span class="record">最高记录 ${bestScore}${isNewRecord ? '  ✦ 新纪录' : ''}</span>`;
+    startBtn.textContent = '再 来 一 局';
+    rulesEl.style.display = 'none';
+    overlay.classList.remove('hidden');
+  }
+
+  function updateHUD() {
+    scoreSpan.textContent = score;
+    timerSpan.textContent = Math.ceil(Math.max(0, timeLeft));
+
+    let h = '';
+    for (let i = 0; i < 3; i++) {
+      const full = i < Math.floor(lives);
+      const half = i === Math.floor(lives) && lives % 1 === 0.5;
+      h += `<span class="heart ${full || half ? '' : 'empty'}">${half ? '❤' : '❤'}</span>`;
+    }
+    heartsEl.innerHTML = h;
+
+    if (timeLeft <= 10 && gameActive) timerBox.classList.add('warning');
+    else timerBox.classList.remove('warning');
+  }
+
+  let statusTimer = null;
+  function showStatus(text) {
+    statusTag.textContent = text;
+    statusTag.classList.remove('show');
+    void statusTag.offsetWidth;
+    statusTag.classList.add('show');
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => statusTag.classList.remove('show'), 750);
+  }
+
+  let buffTimer = null;
+  function showBuff(text) {
+    buffTag.textContent = text;
+    buffTag.classList.remove('show');
+    void buffTag.offsetWidth;
+    buffTag.classList.add('show');
+    clearTimeout(buffTimer);
+    buffTimer = setTimeout(() => buffTag.classList.remove('show'), 1000);
+  }
+
+  function loseLife(amount) {
+    lives -= amount;
+    if (lives < 0) lives = 0;
+    updateHUD();
+    vibrate(VIB.miss);
+    screenShake('light');
+    screenFlash('white');
+    heartsPulse();
+    if (lives <= 0) {
+      endGame('time');
+    }
+  }
+
+  function addTime(sec) {
+    timeLeft += sec;
+    updateHUD();
+    showStatus('+' + sec + ' 秒');
+    showBuff('⏳ 时间 +' + sec);
+    vibrate(VIB.buff);
+    screenFlash('gold');
+    screenShake('light');
+  }
+
+  function handleSliceAt(x, y) {
+    if (!gameActive || gameOver) return;
+    let slicedAny = false;
+    let slicedSpecial = false;
+
+    for (let i = fruits.length - 1; i >= 0; i--) {
+      const f = fruits[i];
+      const dx = f.x - x, dy = f.y - y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < SLICE_RADIUS + f.radius * 0.55) {
+
+        if (f.type === 'special') {
+          slicedSpecial = true;
+          fruits.splice(i, 1);
+          createInkSplatter(f.x, f.y, 18, 260);
+
+          if (f.name === 'bomb') {
+            vibrate(VIB.bomb);
+            screenShake('heavy');
+            screenFlash('red');
+            createInkSplatter(f.x, f.y, 40, 420);
+            endGame('bomb');
+            return;
+          }
+          else if (f.name === 'freeze') {
+            freezeTimer = 3;
+            showBuff('❄ 冰冻 3 秒');
+            showStatus('冰 冻');
+            vibrate(VIB.buff);
+            screenFlash('blue');
+            screenShake('light');
+          }
+          else if (f.name === 'double') {
+            doubleTimer = 10;
+            showBuff('✦ 双倍得分');
+            showStatus('双 倍');
+            vibrate(VIB.buff);
+            screenFlash('gold');
+            screenShake('light');
+          }
+          else if (f.name === 'clear') {
+            showBuff('✦ 墨 染 全 场');
+            showStatus('清 场');
+            vibrate([40, 30, 60]);
+            screenFlash('white');
+            screenShake('medium');
+            for (let j = fruits.length - 1; j >= 0; j--) {
+              const ff = fruits[j];
+              if (ff.type === 'fruit') {
+                score += ff.score * (doubleTimer > 0 ? 2 : 1);
+                createInkSplatter(ff.x, ff.y, 10, 200);
+                fruits.splice(j, 1);
+              }
+            }
+            updateHUD();
+            scoreBump();
+          }
+          else if (f.name === 'time') {
+            addTime(5);
+          }
+        }
+        else {
+          slicedAny = true;
+          const gained = f.score * (doubleTimer > 0 ? 2 : 1);
+          score += gained;
+          createInkSplatter(f.x, f.y, 16, 240);
+          fruits.splice(i, 1);
+          updateHUD();
+          scoreBump();
+        }
+      }
+    }
+
+    if (slicedAny) {
+      vibrate(VIB.slice);
+      screenShake('light');
+      screenFlash('white');
+      if (score > 0 && score % 5 === 0) {
+        showStatus('妙 笔 生 花');
+        vibrate(VIB.combo);
+        screenShake('medium');
+      }
+    }
+    if (slicedSpecial) {
+      vibrate(VIB.sliceBig);
+      screenShake('medium');
+    }
+  }
+
+  function update(dt) {
+    if (!gameActive || gameOver) return;
+
+    timeLeft -= dt;
+    if (timeLeft <= 0) {
+      timeLeft = 0;
+      updateHUD();
+      endGame('time');
+      return;
+    }
+
+    if (freezeTimer > 0) {
+      freezeTimer -= dt;
+      if (freezeTimer < 0) freezeTimer = 0;
+    }
+    if (doubleTimer > 0) {
+      doubleTimer -= dt;
+      if (doubleTimer < 0) doubleTimer = 0;
+    }
+
+    updateHUD();
+
+    fruitTimer += dt;
+    if (fruitTimer >= FRUIT_SPAWN_INTERVAL) {
+      fruitTimer = 0;
+      const count = Math.random() > 0.72 ? 2 : 1;
+      for (let i = 0; i < count; i++) {
+        setTimeout(spawnFruit, i * 130);
+      }
+    }
+
+    const speedScale = freezeTimer > 0 ? 0.35 : 1;
+
+    for (let i = fruits.length - 1; i >= 0; i--) {
+      const f = fruits[i];
+      f.vy += GRAVITY * dt * speedScale;
+      f.x += f.vx * dt * speedScale;
+      f.y += f.vy * dt * speedScale;
+      f.rotation += f.rotSpeed * dt * speedScale;
+
+      if (f.y > canvasHeight + f.radius + 80) {
+        if (f.type === 'fruit') {
+          loseLife(0.5);
+        }
+        fruits.splice(i, 1);
+        continue;
+      }
+      if (f.x < -200 || f.x > canvasWidth + 200) {
+        fruits.splice(i, 1);
+      }
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.vy += GRAVITY * 0.35 * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt;
+      if (p.life <= 0 || p.y > canvasHeight + 120) particles.splice(i, 1);
+    }
+
+    for (let i = bladePoints.length - 1; i >= 0; i--) {
+      bladePoints[i].life -= dt;
+      if (bladePoints[i].life <= 0) bladePoints.splice(i, 1);
+    }
+  }
+
+  // ---------- 水墨绘制 ----------
+  function drawBackground() {
+    const g = ctx.createRadialGradient(canvasWidth*0.1, canvasHeight*0.1, 50, canvasWidth*0.1, canvasHeight*0.1, 400);
+    g.addColorStop(0, 'rgba(26,26,26,0.02)');
+    g.addColorStop(1, 'rgba(26,26,26,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    const g2 = ctx.createRadialGradient(canvasWidth*0.9, canvasHeight*0.85, 60, canvasWidth*0.9, canvasHeight*0.85, 500);
+    g2.addColorStop(0, 'rgba(26,26,26,0.015)');
+    g2.addColorStop(1, 'rgba(26,26,26,0)');
+    ctx.fillStyle = g2;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  }
+
+  function drawFruit(f) {
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.rotate(f.rotation);
+
+    const r = f.radius;
+    const ink = f.inkColor;
+    const baseW = f.strokeWidth || 3;
+
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(26,26,26,0.04)';
+    ctx.fill();
+
+    ctx.beginPath();
+    const seg = 30;
+    for (let i = 0; i <= seg; i++) {
+      const a = (i / seg) * Math.PI * 2;
+      const noise = Math.sin(a * 5 + f.offsetSeed) * 0.8 + Math.cos(a * 7 + f.offsetSeed * 2) * 0.5;
+      const rr = r + noise;
+      const px = Math.cos(a) * rr;
+      const py = Math.sin(a) * rr;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(26,26,26,0.15)';
+    ctx.lineWidth = baseW + 3;
+    ctx.stroke();
+    ctx.strokeStyle = ink;
+    ctx.lineWidth = baseW;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    if (f.detail === 'stripes') {
+      ctx.beginPath();
+      ctx.ellipse(0, 0, r * 0.85, r * 0.35, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = baseW * 0.8;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(0, 0, r * 0.5, r * 0.25, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(26,26,26,0.55)';
+      ctx.lineWidth = baseW * 0.5;
+      ctx.stroke();
+    }
+    else if (f.detail === 'dots') {
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * Math.PI * 2 + f.offsetSeed;
+        const px = Math.cos(a) * r * 0.55, py = Math.sin(a) * r * 0.55;
+        ctx.beginPath();
+        ctx.arc(px, py, baseW * 0.8, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(26,26,26,0.3)';
+        ctx.fill();
+      }
+    }
+    else if (f.detail === 'stem') {
+      ctx.beginPath();
+      ctx.moveTo(0, -r * 0.7);
+      ctx.quadraticCurveTo(-r * 0.15, -r * 1.1, -r * 0.05, -r * 1.35);
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = baseW * 1.2;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(-r * 0.3, -r * 1.05, r * 0.18, r * 0.08, -0.4, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(26,26,26,0.2)';
+      ctx.fill();
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = baseW * 0.6;
+      ctx.stroke();
+    }
+    else if (f.detail === 'pointy') {
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.9, 0);
+      ctx.quadraticCurveTo(-r * 0.3, -r * 0.9, 0, -r * 0.95);
+      ctx.quadraticCurveTo(r * 0.3, -r * 0.9, r * 0.9, 0);
+      ctx.quadraticCurveTo(r * 0.3, r * 0.9, 0, r * 0.95);
+      ctx.quadraticCurveTo(-r * 0.3, r * 0.9, -r * 0.9, 0);
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = baseW * 0.7;
+      ctx.stroke();
+    }
+    else if (f.detail === 'crease') {
+      ctx.beginPath();
+      ctx.moveTo(0, -r * 0.85);
+      ctx.quadraticCurveTo(-r * 0.4, -r * 0.2, -r * 0.15, r * 0.3);
+      ctx.quadraticCurveTo(0, r * 0.5, r * 0.15, r * 0.3);
+      ctx.quadraticCurveTo(r * 0.4, -r * 0.2, 0, -r * 0.85);
+      ctx.strokeStyle = 'rgba(26,26,26,0.5)';
+      ctx.lineWidth = baseW * 0.6;
+      ctx.stroke();
+    }
+    else if (f.detail === 'scales') {
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2 + f.offsetSeed;
+        const px = Math.cos(a) * r * 0.7, py = Math.sin(a) * r * 0.7;
+        ctx.beginPath();
+        ctx.arc(px, py, baseW * 1.2, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(26,26,26,0.25)';
+        ctx.fill();
+        ctx.strokeStyle = ink;
+        ctx.lineWidth = baseW * 0.5;
+        ctx.stroke();
+      }
+    }
+    else if (f.detail === 'bomb') {
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.6, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.08)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(r * 0.35, -r * 0.7);
+      ctx.quadraticCurveTo(r * 0.6, -r * 1.1, r * 0.4, -r * 1.5);
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(r * 0.4, -r * 1.5, r * 0.15, 0, Math.PI * 2);
+      ctx.fillStyle = '#000';
+      ctx.fill();
+      ctx.font = `${r * 0.9}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#000';
+      ctx.fillText('💣', 0, 2);
+    }
+    else if (f.detail === 'freeze') {
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.strokeStyle = '#1a1a1a';
+      ctx.lineWidth = 3.2;
+      ctx.stroke();
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7);
+      }
+      ctx.strokeStyle = 'rgba(26,26,26,0.7)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.font = `${r * 0.8}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillText('❄', 0, 0);
+    }
+    else if (f.detail === 'double') {
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.strokeStyle = '#1a1a1a';
+      ctx.lineWidth = 3.2;
+      ctx.stroke();
+      ctx.font = `${r * 0.9}px "KaiTi", serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillText('双', 0, 0);
+    }
+    else if (f.detail === 'clear') {
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.strokeStyle = '#1a1a1a';
+      ctx.lineWidth = 3.2;
+      ctx.stroke();
+      ctx.font = `${r * 0.9}px "KaiTi", serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillText('清', 0, 0);
+    }
+    else if (f.detail === 'time') {
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.strokeStyle = '#1a1a1a';
+      ctx.lineWidth = 3.2;
+      ctx.stroke();
+      ctx.font = `${r * 0.9}px "KaiTi", serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillText('时', 0, 0);
+    }
+
+    ctx.beginPath();
+    ctx.arc(-r * 0.25, -r * 0.3, r * 0.12, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(253,250,243,0.85)';
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawParticles() {
+    for (const p of particles) {
+      const alpha = p.life / p.maxLife;
+      const size = p.size * alpha;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(26,26,26,${alpha * 0.7})`;
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, size * 1.8, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(26,26,26,${alpha * 0.15})`;
+      ctx.fill();
+    }
+  }
+
+  function drawBlade() {
+    if (bladePoints.length < 2) return;
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    ctx.beginPath();
+    for (let i = 0; i < bladePoints.length; i++) {
+      const p = bladePoints[i];
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else {
+        const prev = bladePoints[i - 1];
+        const mx = (prev.x + p.x) / 2, my = (prev.y + p.y) / 2;
+        ctx.quadraticCurveTo(prev.x, prev.y, mx, my);
+      }
+    }
+    ctx.strokeStyle = 'rgba(26,26,26,0.08)';
+    ctx.lineWidth = 26;
+    ctx.stroke();
+
+    ctx.beginPath();
+    for (let i = 0; i < bladePoints.length; i++) {
+      const p = bladePoints[i];
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else {
+        const prev = bladePoints[i - 1];
+        const mx = (prev.x + p.x) / 2, my = (prev.y + p.y) / 2;
+        ctx.quadraticCurveTo(prev.x, prev.y, mx, my);
+      }
+    }
+    ctx.strokeStyle = 'rgba(26,26,26,0.65)';
+    ctx.lineWidth = 8;
+    ctx.stroke();
+
+    ctx.beginPath();
+    for (let i = 0; i < bladePoints.length; i++) {
+      const p = bladePoints[i];
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    ctx.strokeStyle = 'rgba(10,10,10,0.95)';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    for (let i = 0; i < bladePoints.length; i += 2) {
+      const p = bladePoints[i];
+      if (Math.random() > 0.5) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(253,250,243,0.9)';
+        ctx.fill();
+      }
+    }
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    drawBackground();
+    for (const f of fruits) drawFruit(f);
+    drawParticles();
+    drawBlade();
+  }
+
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    let cx, cy;
+    if (e.touches && e.touches.length) {
+      cx = e.touches[0].clientX; cy = e.touches[0].clientY;
+    } else if (e.changedTouches && e.changedTouches.length) {
+      cx = e.changedTouches[0].clientX; cy = e.changedTouches[0].clientY;
+    } else {
+      cx = e.clientX; cy = e.clientY;
+    }
+    return {
+      x: (cx - rect.left) * (canvasWidth / rect.width),
+      y: (cy - rect.top) * (canvasHeight / rect.height),
+    };
+  }
+
+  function onDown(e) {
+    e.preventDefault();
+    if (!gameActive || gameOver) return;
+    isSlicing = true;
+    const p = getPos(e);
+    lastSlicePos = p;
+    bladePoints = [];
+    addBladePoint(p.x, p.y);
+    handleSliceAt(p.x, p.y);
+  }
+
+  function onMove(e) {
+    e.preventDefault();
+    if (!isSlicing || !gameActive || gameOver) return;
+    const p = getPos(e);
+    addBladePoint(p.x, p.y);
+
+    if (lastSlicePos) {
+      const steps = 5;
+      for (let s = 1; s <= steps; s++) {
+        const t = s / steps;
+        const ix = lastSlicePos.x + (p.x - lastSlicePos.x) * t;
+        const iy = lastSlicePos.y + (p.y - lastSlicePos.y) * t;
+        handleSliceAt(ix, iy);
+      }
+    } else {
+      handleSliceAt(p.x, p.y);
+    }
+    lastSlicePos = p;
+  }
+
+  function onUp(e) {
+    e.preventDefault();
+    isSlicing = false;
+    lastSlicePos = null;
+  }
+
+  function init() {
+    resizeCanvas();
+    resetGame();
+
+    window.addEventListener('resize', resizeCanvas);
+
+    canvas.addEventListener('mousedown', onDown);
+    canvas.addEventListener('mousemove', onMove);
+    canvas.addEventListener('mouseup', onUp);
+    canvas.addEventListener('mouseleave', () => {
+      isSlicing = false;
+      lastSlicePos = null;
+    });
+
+    canvas.addEventListener('touchstart', onDown, { passive: false });
+    canvas.addEventListener('touchmove', onMove, { passive: false });
+    canvas.addEventListener('touchend', onUp, { passive: false });
+    canvas.addEventListener('touchcancel', onUp, { passive: false });
+
+    document.addEventListener('touchmove', (e) => {
+      if (e.target === canvas || e.target === container) e.preventDefault();
+    }, { passive: false });
+
+    startBtn.addEventListener('click', (e) => { e.preventDefault(); startGame(); });
+    startBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startGame(); }, { passive: false });
+
+    let last = 0;
+    function loop(ts) {
+      if (!last) last = ts;
+      const dt = Math.min((ts - last) / 1000, 0.05);
+      last = ts;
+      update(dt);
+      render();
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  }
+
+  init();
+})();
+</script>
+
+<!-- 补充：三档抖动关键帧（放在 style 后，确保生效） -->
+<style>
+  @keyframes shakeLight {
+    0% { transform: translate(0, 0); }
+    30% { transform: translate(-2px, 1px); }
+    60% { transform: translate(2px, -1px); }
+    100% { transform: translate(0, 0); }
+  }
+  @keyframes shakeMedium {
+    0% { transform: translate(0, 0); }
+    20% { transform: translate(-5px, 2px); }
+    40% { transform: translate(5px, -3px); }
+    60% { transform: translate(-4px, -2px); }
+    80% { transform: translate(3px, 2px); }
+    100% { transform: translate(0, 0); }
+  }
+  @keyframes shakeHeavy {
+    0% { transform: translate(0, 0); }
+    15% { transform: translate(-9px, 5px); }
+    30% { transform: translate(9px, -6px); }
+    45% { transform: translate(-7px, -4px); }
+    60% { transform: translate(6px, 4px); }
+    80% { transform: translate(-4px, 2px); }
+    100% { transform: translate(0, 0); }
+  }
+</style>
+</body>
+</html>
