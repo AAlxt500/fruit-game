@@ -17,17 +17,8 @@
       overflow: hidden;
       border: 6px solid #1a1a1a;
     }
-    .shake-layer {
-      position: absolute; inset: 0;
-      pointer-events: none; z-index: 5;
-      will-change: transform;
-    }
-    .flash-layer {
-      position: absolute; inset: 0;
-      pointer-events: none; z-index: 6;
-      background: #ffffff;
-      opacity: 0;
-    }
+    .shake-layer { position: absolute; inset: 0; pointer-events: none; z-index: 5; will-change: transform; }
+    .flash-layer { position: absolute; inset: 0; pointer-events: none; z-index: 6; background: #ffffff; opacity: 0; }
     .flash-layer.flash-white { animation: flashWhite 0.14s ease-out; }
     .flash-layer.flash-red { animation: flashRed 0.3s ease-out; }
     .flash-layer.flash-gold { animation: flashGold 0.25s ease-out; }
@@ -36,7 +27,7 @@
     @keyframes flashRed { 0% { opacity: 0.7; background: #b00020; } 100% { opacity: 0; background: #b00020; } }
     @keyframes flashGold { 0% { opacity: 0.45; background: #ffcc44; } 100% { opacity: 0; background: #ffcc44; } }
     @keyframes flashBlue { 0% { opacity: 0.45; background: #66ccff; } 100% { opacity: 0; background: #66ccff; } }
-    canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; position: absolute; inset: 0; z-index: 2; }
+    canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; position: absolute; inset: 0; z-index: 2; pointer-events: auto; }
     .hud-top {
       position: absolute; top: 20px; left: 0; right: 0;
       display: flex; justify-content: space-between; align-items: flex-start;
@@ -104,10 +95,14 @@
       box-shadow: 6px 6px 0 #1a1a1a;
       transition: transform 0.08s ease, box-shadow 0.08s ease;
       font-family: inherit; touch-action: manipulation;
+      pointer-events: auto;
     }
     .btn:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0 #1a1a1a; }
     .rules { font-size: 0.95rem; color: #666; line-height: 2; text-align: center; }
     .rules span { color: #1a1a1a; font-weight: 700; }
+    @keyframes shakeLight { 0% { transform: translate(0, 0); } 30% { transform: translate(-2px, 1px); } 60% { transform: translate(2px, -1px); } 100% { transform: translate(0, 0); } }
+    @keyframes shakeMedium { 0% { transform: translate(0, 0); } 20% { transform: translate(-5px, 2px); } 40% { transform: translate(5px, -3px); } 60% { transform: translate(-4px, -2px); } 80% { transform: translate(3px, 2px); } 100% { transform: translate(0, 0); } }
+    @keyframes shakeHeavy { 0% { transform: translate(0, 0); } 15% { transform: translate(-9px, 5px); } 30% { transform: translate(9px, -6px); } 45% { transform: translate(-7px, -4px); } 60% { transform: translate(6px, 4px); } 80% { transform: translate(-4px, 2px); } 100% { transform: translate(0, 0); } }
   </style>
 </head>
 <body>
@@ -144,14 +139,12 @@
 <script>
 (function() {
   'use strict';
-  console.log('游戏脚本开始加载');
 
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
   const container = document.getElementById('gameContainer');
   const shakeLayer = document.getElementById('shakeLayer');
   const flashLayer = document.getElementById('flashLayer');
-  const scoreBoard = document.getElementById('scoreBoard');
   const scoreSpan = document.getElementById('scoreValue');
   const timerSpan = document.getElementById('timerValue');
   const timerBox = document.getElementById('timerBox');
@@ -177,17 +170,11 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     canvas.style.width = canvasWidth + 'px';
     canvas.style.height = canvasHeight + 'px';
-    console.log('Canvas 尺寸:', canvasWidth, canvasHeight);
   }
 
-  // 震动
   function vibrate(pattern) {
-    if (pattern && navigator.vibrate) {
-      try { navigator.vibrate(pattern); } catch (e) {}
-    }
+    if (pattern && navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) {} }
   }
-
-  // 视觉反馈
   function screenShake(intensity) {
     shakeLayer.style.animation = 'none';
     void shakeLayer.offsetWidth;
@@ -204,7 +191,6 @@
     else if (type === 'blue') flashLayer.classList.add('flash-blue');
   }
 
-  // 游戏状态
   let score = 0;
   let bestScore = parseInt(localStorage.getItem('ink_fruit_best') || '0', 10);
   let lives = 3;
@@ -220,7 +206,7 @@
   let doubleTimer = 0;
   let isSlicing = false;
   let lastSlicePos = null;
-  const SLICE_RADIUS = 50; // 加大判定半径
+  const SLICE_RADIUS = 50;
   const GRAVITY = 1350;
 
   const FRUIT_TYPES = [
@@ -233,11 +219,11 @@
     { name:'dragon', inkColor:'#0a0a0a', radius:34, score:2, strokeWidth:4, detail:'scales' },
   ];
   const SPECIAL_TYPES = {
-    bomb: { name:'bomb', radius:30, score:0, inkColor:'#000' },
-    freeze: { name:'freeze', radius:28, score:0, inkColor:'#1a1a1a' },
-    double: { name:'double', radius:28, score:0, inkColor:'#1a1a1a' },
-    clear: { name:'clear', radius:28, score:0, inkColor:'#1a1a1a' },
-    time: { name:'time', radius:26, score:0, inkColor:'#1a1a1a' },
+    bomb: { name:'bomb', radius:30, inkColor:'#000' },
+    freeze: { name:'freeze', radius:28, inkColor:'#1a1a1a' },
+    double: { name:'double', radius:28, inkColor:'#1a1a1a' },
+    clear: { name:'clear', radius:28, inkColor:'#1a1a1a' },
+    time: { name:'time', radius:26, inkColor:'#1a1a1a' },
   };
 
   const rand = (a, b) => Math.random() * (b - a) + a;
@@ -287,7 +273,6 @@
   function startGame() {
     resetGame(); gameActive = true; overlay.classList.add('hidden');
     vibrate([30, 50, 30]); screenFlash('white'); screenShake('light'); showStatus('开 始');
-    console.log('游戏开始');
   }
   function endGame(reason) {
     if (gameOver) return;
@@ -334,8 +319,6 @@
     timeLeft += sec; updateHUD(); showStatus('+' + sec + ' 秒'); showBuff('⏳ 时间 +' + sec);
     vibrate([25, 20, 25]); screenFlash('gold'); screenShake('light');
   }
-
-  // 核心：切割判定
   function handleSliceAt(x, y) {
     if (!gameActive || gameOver) return;
     let slicedAny = false;
@@ -344,7 +327,6 @@
       const dx = f.x - x, dy = f.y - y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist < SLICE_RADIUS + f.radius * 0.6) {
-        console.log('切中!', f.name, '距离:', dist.toFixed(1));
         if (f.type === 'special') {
           fruits.splice(i, 1); createInkSplatter(f.x, f.y, 18, 260);
           if (f.name === 'bomb') { vibrate([80, 40, 120]); screenShake('heavy'); screenFlash('red'); endGame('bomb'); return; }
@@ -408,7 +390,6 @@
     }
   }
 
-  // 绘制（保持原有水墨风）
   function drawBackground() {
     const g = ctx.createRadialGradient(canvasWidth*0.1, canvasHeight*0.1, 50, canvasWidth*0.1, canvasHeight*0.1, 400);
     g.addColorStop(0, 'rgba(26,26,26,0.02)'); g.addColorStop(1, 'rgba(26,26,26,0)');
@@ -483,7 +464,6 @@
     drawParticles(); drawBlade();
   }
 
-  // 坐标转换
   function getPos(e) {
     const rect = canvas.getBoundingClientRect();
     let cx, cy;
@@ -493,7 +473,6 @@
     return { x: (cx - rect.left) * (canvasWidth / rect.width), y: (cy - rect.top) * (canvasHeight / rect.height) };
   }
 
-  // 事件处理（绑定到 window，确保任何地方划都能触发）
   function onDown(e) {
     if (!gameActive || gameOver) return;
     isSlicing = true;
@@ -518,7 +497,7 @@
     }
     lastSlicePos = p;
   }
-  function onUp(e) {
+  function onUp() {
     isSlicing = false;
     lastSlicePos = null;
   }
@@ -526,20 +505,14 @@
   function init() {
     resizeCanvas();
     resetGame();
-    console.log('初始化完成');
-
     window.addEventListener('resize', resizeCanvas);
-
-    // 绑定到 window，避免被遮挡
     window.addEventListener('mousedown', onDown);
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     window.addEventListener('touchstart', onDown, { passive: true });
     window.addEventListener('touchmove', onMove, { passive: true });
     window.addEventListener('touchend', onUp, { passive: true });
-
-    startBtn.addEventListener('click', (e) => { e.preventDefault(); startGame(); });
-
+    startBtn.addEventListener('click', function(e) { e.preventDefault(); startGame(); });
     let last = 0;
     function loop(ts) {
       if (!last) last = ts;
@@ -553,24 +526,5 @@
   init();
 })();
 </script>
-<style>
-  @keyframes shakeLight { 0% { transform: translate(0, 0); } 30% { transform: translate(-2px, 1px); } 60% { transform: translate(2px, -1px); } 100% { transform: translate(0, 0); } }
-  @keyframes shakeMedium { 0% { transform: translate(0, 0); } 20% { transform: translate(-5px, 2px); } 40% { transform: translate(5px, -3px); } 60% { transform: translate(-4px, -2px); } 80% { transform: translate(3px, 2px); } 100% { transform: translate(0, 0); } }
-  @keyframes shakeHeavy { 0% { transform: translate(0, 0); } 15% { transform: translate(-9px, 5px); } 30% { transform: translate(9px, -6px); } 45% { transform: translate(-7px, -4px); } 60% { transform: translate(6px, 4px); } 80% { transform: translate(-4px, 2px); } 100% { transform: translate(0, 0); } }
-/* GitHub Pages 兼容：确保 canvas 能接收所有事件 */
-canvas {
-  pointer-events: auto !important;
-  z-index: 9999 !important;
-  position: relative !important;
-}
-.hud-top, .shake-layer, .flash-layer, .status-tag, .buff-tag {
-  pointer-events: none !important;
-}
-.overlay.hidden {
-  pointer-events: none !important;
-}
-.overlay .btn {
-  pointer-events: auto !important;
-}</style>
 </body>
 </html>
