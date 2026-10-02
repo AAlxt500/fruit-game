@@ -557,6 +557,20 @@
   @keyframes shakeLight { 0% { transform: translate(0, 0); } 30% { transform: translate(-2px, 1px); } 60% { transform: translate(2px, -1px); } 100% { transform: translate(0, 0); } }
   @keyframes shakeMedium { 0% { transform: translate(0, 0); } 20% { transform: translate(-5px, 2px); } 40% { transform: translate(5px, -3px); } 60% { transform: translate(-4px, -2px); } 80% { transform: translate(3px, 2px); } 100% { transform: translate(0, 0); } }
   @keyframes shakeHeavy { 0% { transform: translate(0, 0); } 15% { transform: translate(-9px, 5px); } 30% { transform: translate(9px, -6px); } 45% { transform: translate(-7px, -4px); } 60% { transform: translate(6px, 4px); } 80% { transform: translate(-4px, 2px); } 100% { transform: translate(0, 0); } }
-</style>
+/* GitHub Pages 兼容：确保 canvas 能接收所有事件 */
+canvas {
+  pointer-events: auto !important;
+  z-index: 9999 !important;
+  position: relative !important;
+}
+.hud-top, .shake-layer, .flash-layer, .status-tag, .buff-tag {
+  pointer-events: none !important;
+}
+.overlay.hidden {
+  pointer-events: none !important;
+}
+.overlay .btn {
+  pointer-events: auto !important;
+}</style>
 </body>
 </html>
